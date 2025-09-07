@@ -1,245 +1,150 @@
-# Epic 1 — MVP + Backtest (v3, Raw Input → Full Feature Pipeline)
+# 🟢 Epic 1 — MVP + Backtest (v4, Multi-Pipeline)
 
-Cíl: **plně zdokumentovaná Python pipeline**, která přebírá **syrová (raw) data** z těžby a v rámci pipeline provede:
-1. Revizi dat (validace, čištění, normalizace)
-2. Výpočet všech potřebných **features**
-3. Generování **signálů**
-4. **Risk/sizing**
-5. **Backtest**
-6. **Vyhodnocení výsledků**
-
-> Fundamenty zůstávají **mimo** (použijí se při výběru universa mimo tuto pipeline). Pipeline ale umí volitelně připojit externí event kalendáře (earnings/dividendy) pro `event_block`.
+Cíl: **plně zdokumentovaná Python orchestrace**, která po uzavření burzy spustí:
+1. **Raw Data Pipeline** – načtení, validace a příprava sdíleného datasetu
+2. **3 nezávislé strategie pipelines** – Mean Reversion, Trend Following, ETF Rotation
+3. **Backtest a vyhodnocení každé strategie zvlášť**
+4. **Souhrnný reporting** (výkon, risk, korelace strategií)
 
 ---
 
-## 0. Architektura & Tok dat
+## 🔹 Pipeline 0: Raw Data (Shared Ingest & Clean)
 
-**Vstup:** syrové OHLCV (CSV/Parquet) z vytěženého zdroje, *bez* features.  
-**Výstup:** report (metriky, equity), trade logy a (volitelně) export „feature‑ready“ datasetu.
+**Princip:** společný krok pro všechny strategie – stáhne, vyčistí a připraví data.
 
-### Kroky pipeline
-1. **Load + Validate Raw** → `utils/data_ingest.py`
-2. **Clean + Normalize** → `utils/clean.py`
-3. **Feature Engineering** → `utils/features.py`
-4. **Signals + Filters** → `utils/signals.py`
-5. **Risk & Sizing** → `utils/risk.py`
-6. **Backtest** → `core/backtest.py`
-7. **Evaluation + Reports** → `core/eval.py` + `reports/`
-8. **CLI Orchestrátor** → `cli.py`
+### Tasks
+- [ ] `load_raw(paths, tz="UTC")`: Načti OHLCV za poslední rok (CSV/Parquet)
+- [ ] `validate_raw_schema(df, required=...)`: Ověř povinné sloupce a typy
+- [ ] `sanitize(df)`: seřazení podle ticker/date, deduplikace, drop NaN
+- [ ] `check_ranges(df)`: kontrola cen (ceny > 0, high ≥ low, volume ≥ 0)
+- [ ] `adjust_prices_if_needed(method="split")`: volitelné, adjustace při splitech
+- [ ] Export do `base_ohlcv.parquet`
+- [ ] Připojit `events.parquet` (earnings/div, pokud dostupné)
+- [ ] Založit whitelist universa (`universes/*.json`) – fundamentální filtry mimo scope MVP
 
----
-
-## 1. Struktura repozitáře
-
-```text
-trader/
-├─ cli.py
-├─ config/
-│  ├─ config.example.yml
-│  └─ schemas/
-├─ core/
-│  ├─ backtest.py
-│  └─ eval.py
-├─ utils/
-│  ├─ data_ingest.py
-│  ├─ clean.py
-│  ├─ features.py
-│  ├─ signals.py
-│  ├─ risk.py
-│  ├─ events.py
-│  └─ time_series.py
-├─ reports/
-├─ tests/
-│  ├─ conftest.py
-│  ├─ test_data_ingest.py
-│  ├─ test_clean.py
-│  ├─ test_features.py
-│  ├─ test_signals.py
-│  ├─ test_backtest.py
-│  └─ test_eval.py
-└─ README.md
-```
+### Output
+- `data_cache/base_ohlcv.parquet`
+- `data_cache/events.parquet`
+- `universes/universe_main.json`, `universes/universe_etf.json`
 
 ---
 
-## 2. Datové kontrakty (I/O)
+## 🔹 Pipeline 1: Mean Reversion (Elastic Snapback)
 
-### 2.1 RAW Input (požadované minimum)
-- `["ticker","date","open","high","low","close","volume"]`
-- Typy:
-    - `ticker = str`
-    - `date = datetime64` (nebo naive + `tz` v configu)
-    - ceny = `float`
-    - volume = `int/float`
+**Princip:** návrat k průměru po krátkodobé odchylce.  
+Funguje při nízkém trendu (ADX < 22, Hurst < 0.5). Typický holding 2–5 dní.
 
-### 2.2 Feature Output (po kroku 3)
-- `ema_20`, `resid_ema20`, `sigma_resid_ema20_20`, `z_ema20_20`
-- `atr_14`, `atrp_14`
-- `hurst_price_250` **nebo** `hurst_resid_250`
-- `ou_phi_resid`, `ou_half_life`
-- `event_block` (0/1; pokud `events.py` použito)
+### Setup
+**BUY:**
+- Hurst < 0.45
+- Close pod dolní Bollinger (20, 2σ)
+- Z-score < –2.0
+- RSI(2) < 5
+- Stop-loss: swing low –0.7×ATR(14)
+- Exit: SMA20 nebo RSI(2) > 70
 
-### 2.3 Signals Output
-- `eligible` (0/1)
-- `signal_long` (0/1)
-- `entry_z`, `exit_z`, `stop_z`, `time_stop_bars`
-- *(volitelně)* `position_size`
+**SELL:**
+- Hurst < 0.45
+- Close nad horní Bollinger (20, 2σ)
+- Z-score > +2.0
+- RSI(2) > 95
+- Stop-loss: swing high +0.7×ATR(14)
+- Exit: SMA20 nebo RSI(2) < 30
 
-### 2.4 Backtest Output
-- **Trades:** `["ticker","entry_date","entry_px","exit_date","exit_px","qty","pnl","return","bars_held"]`
-- **Equity:** `["date","equity","cash","exposure"]`
-- **Summary:** dict/DF
+### Tasks
+- [ ] `add_ema`, `add_residuals_zscore`, `add_atr`, `add_hurst`, `add_ou_halflife`
+- [ ] Generace signálů: `apply_quality_filters`, `generate_long_signals`
+- [ ] Risk: `atr_volatility_sizing` (risk_per_trade ≤ 1 %)
+- [ ] Backtest: `run_vector_backtest` s TP/SL/TimeStop, equity a trades
+- [ ] Eval: `evaluate_trades` → WR, PF, Sharpe, DD, MAR
 
----
-
-## 3. API návrh (hlavní signatury)
-
-### utils/data_ingest.py
-- `load_raw(paths, tz="UTC")`: Načti syrové OHLCV (CSV/Parquet) a sjednoť dtypes, timezone, sloupce.
-- `validate_raw_schema(df, required=...)`: Ověř povinné sloupce a typy (ValueError s detailní zprávou).
-
-### utils/clean.py
-- `sanitize(df)`: Sort by `['ticker','date']`, deduplikace, drop řádků s NaN.
-- `check_ranges(df)`: Kontrola rozsahu (ceny > 0, volume >= 0, high/low konzistence).
-- `adjust_prices_if_needed(df, method="none")`: Volitelné — adjustace (splity/div).
-
-### utils/features.py
-- `add_ema(...)`
-- `add_residuals_zscore(...)`
-- `add_atr(...)`
-- `add_hurst(...)`
-- `add_ou_halflife(...)`
-
-### utils/events.py (volitelné)
-- `add_event_block(...)`: Přidá `event_block=1`, pokud datum spadá do intervalu kolem earnings/dividend.
-
-### utils/signals.py
-- `apply_quality_filters(...)`: Vrátí df s `eligible=1`, pokud projde filtry.
-- `generate_long_signals(...)`: Přidá `signal_long` a parametry vstupu/výstupu.
-
-### utils/risk.py
-- `atr_volatility_sizing(...)`: Velikost pozice podle % risku účtu a ATR.
-
-### core/backtest.py
-- `run_vector_backtest(...)`: Vektorový backtest (TP/SL/TIME, concurrency, equity).
-
-### core/eval.py
-- `evaluate_trades(...)`: Výpočet WR, PF, avg win/loss, DD, Sharpe, MAR.
+### Output
+- `reports/mr/trades.csv`
+- `reports/mr/equity.csv`
+- `reports/mr/summary.json`
 
 ---
 
-## 4. Feature definice (formule)
+## 🔹 Pipeline 2: Trend Following (SteadyStride)
 
-- **EMA:** `ema_t = alpha*price_t + (1-alpha)*ema_{t-1}`, `alpha = 2/(n+1)`
-- **Reziduum:** `resid = close - ema_20`
-- **Z-score:** `z = resid / stdev(resid, std_window)`
-- **ATR:** `ATR = rolling_mean(true_range, n)`; `ATR% = ATR/close`
-- **Hurst (R/S):** `E[R(n)/S(n)] ~ C * n^H` → odhad H z log-log regrese
-- **OU half-life:** `x_t = a + phi*x_{t-1} + eps_t`; `half_life = -ln(2)/ln(phi)`
+**Princip:** „trend má tendenci pokračovat déle, než si lidé myslí“.  
+Funguje při trendu (ADX > 25, Hurst > 0.5). Typický holding: dny až týdny.
 
----
+### Setup
+**BUY:**
+- Proražení rezistence / nové high
+- Cena nad SMA50 a SMA200
+- Stop-loss: pod swing low nebo SMA50 nebo trailing ATR
+- Exit: trailing stop (2×ATR) nebo návrat pod SMA50
 
-## 5. Konfigurace (YAML příklad)
+**SELL:**
+- Proražení supportu / nové low
+- Cena pod SMA50 a SMA200
+- Stop-loss: nad swing high nebo trailing ATR
+- Exit: trailing stop
 
-```yaml
-data:
-  raw_paths: ["/ABSOLUTE/OR/RELATIVE/RAW/*.parquet"]
-  tz: "UTC"
-  adjusted_prices: false
+### Tasks
+- [ ] `add_sma`, `add_adx`, `add_atr`
+- [ ] Detekce breakoutů (lokální high/low, swing struktura)
+- [ ] Signály: trend filter (SMA50>200, ADX > 25) + breakout condition
+- [ ] Risk: fixní risk_per_trade ≤ 1 % účtu
+- [ ] Backtest: breakout logika s trailing stopem (equity & trades)
+- [ ] Eval: CAGR, MAR ratio, max hold time, max DD
 
-features:
-  ema_window: 20
-  z_std_window: 20
-  atr_window: 14
-  hurst_window: 250
-  ou_lookback: 60
-
-signals:
-  z_entry: -2.5
-  z_exit: -0.5
-  stop_z: -3.5
-  time_stop: 5
-  hurst_max: 0.45
-  atrp_min: 0.01
-  atrp_max: 0.04
-
-risk:
-  capital: 100000
-  risk_per_trade: 0.01
-  max_concurrent: 5
-
-events:
-  earnings_path: null
-  dividends_path: null
-  pre: 1
-  post: 1
-```
+### Output
+- `reports/tf/trades.csv`
+- `reports/tf/equity.csv`
+- `reports/tf/summary.json`
 
 ---
 
-## 6. CLI (příklady)
+## 🔹 Pipeline 3: ETF Rotation (QuietFlow)
 
-```bash
-# End-to-end: raw -> clean -> features -> signals -> (sizing) -> backtest -> eval
-python -m trader.cli --config config/config.yml run
+**Princip:** měsíční rotace mezi ETF podle momenta a volatility.  
+Cíl: pokrýt hluchá místa, stabilní low-maintenance vrstva.
 
-# Pouze kontrola a výpočet features
-python -m trader.cli features
+### Setup
+- **Universe:** velké ETF (SPY, QQQ, IWM, XLK, XLP, XLV, …)
+- **Výběr:** top N podle 3–6M momentum, vyřazení ETF s vysokou volatilitou
+- **Sizing:** risk parity (inverse vola)
+- **Exit:** měsíční rebalance, kill-switch při extrémní volatilitě
 
-# Pouze signály s overrides
-python -m trader.cli signals --z_entry -2.8 --time_stop 7
-```
+### Tasks
+- [ ] Výpočet 3M a 6M momentum, 20D volatility, korelací ETF
+- [ ] Ranking a výběr top N ETF (configurable)
+- [ ] Portfolio vážení: inverse volatility weights, max váha/ETF
+- [ ] Risk: max port risk ≤ 20 % kapitálu, per ETF ≤ 5–10 %
+- [ ] Backtest: měsíční rebalance loop, equity & trades
+- [ ] Eval: Sharpe vs SPY benchmark, tracking error, max DD
 
----
-
-## 7. Dokumentace
-
-- **Docstringy** (NumPy nebo Google style) u všech public funkcí
-- **README.md**: rychlý start + datové kontrakty
-- Volitelné: **pdoc** nebo **mkdocs**
-    - `pdoc trader -o docs/`
-    - `mkdocs new .` → `mkdocs.yml` → `mkdocs serve`
-
----
-
-## 8. Testy — pytest (unit only)
-
-- `tests/fixtures/` — syntetická RAW data (pár tickerů, 30–60 barů)
-
-**Doporučené testy:**
-- `test_data_ingest.py` — chybějící sloupce/typy → `ValueError`
-- `test_clean.py` — deduplikace, sort, NaN handling, range-check
-- `test_features.py` — EMA, Z-score, ATR, Hurst, OU HL (syntetika)
-- `test_signals.py` — prahy z_entry/z_exit/stop/time + eligible
-- `test_backtest.py` — deterministický scénář (TP/SL/TIME, concurrency)
-- `test_eval.py` — WR/PF/DD/Sharpe na umělém trade listu
+### Output
+- `reports/etf/trades.csv`
+- `reports/etf/equity.csv`
+- `reports/etf/summary.json`
 
 ---
 
-## 9. Milníkové Tasks (v3)
+## 🔹 Orchestrace (CLI)
 
-### 1. Ingest & Clean
-- [ ] `load_raw`, `validate_raw_schema`, `sanitize`, `check_ranges`
-- [ ] `adjust_prices_if_needed`
-
-### 2. Features
-- [ ] `add_ema`, `add_residuals_zscore`
-- [ ] `add_atr`, `add_hurst`, `add_ou_halflife`
-- [ ] `add_event_block` (volitelné)
-
-### 3. Signals & Risk
-- [ ] `apply_quality_filters`, `generate_long_signals`
-- [ ] `atr_volatility_sizing` (volitelné)
-
-### 4. Backtest & Eval
-- [ ] `run_vector_backtest` (TP/SL/TIME, equity/cash, concurrency)
-- [ ] `evaluate_trades` + export summary do `reports/`
-
-### 5. CLI & Docs
-- [ ] `cli.py` orchestrace (sub-commands: features, signals, backtest, run)
-- [ ] Docstringy + README + (volitelně) pdoc/mkdocs
+- `pipeline_raw` – spustí ingest + clean + export cache
+- `pipeline_mr` – běží nad `base_ohlcv.parquet`, ukládá do `reports/mr/`
+- `pipeline_tf` – běží nad `base_ohlcv.parquet`, ukládá do `reports/tf/`
+- `pipeline_etf` – běží nad `base_ohlcv.parquet`, ukládá do `reports/etf/`
+- `pipeline_all` – orchestruje všechny nad jedním cache runem
 
 ---
 
-Tímhle máš **self-contained pipeline**: převezme syrová data, očistí, spočítá features, vytvoří signály, sizing, backtest a vyhodnocení.  
-Fundamenty zůstávají mimo (pouze při výběru universa). V dalších epicích lze přidat např. **Kalman fair-value** nebo **cointegration/pairs**.
+## 🔹 Output MVP
+
+- **Per pipeline reports:**
+    - `trades.csv`
+    - `equity.csv`
+    - `summary.json`
+- **Souhrnný přehled:**
+    - Kombinovaný reporting všech tří strategií
+    - Tabulka WR, PF, Sharpe, DD, CAGR, korelace mezi strategiemi
+
+---
+
+Tímto máš MVP, které rovnou validuje **3 rozdílné typy strategií** (Mean Reversion, Trend Following, ETF Rotation) + společnou datovou pipeline.  
+Dál lze rozšiřovat o další pipelines (pairs, breakout, panic rebound, seasonality) a navázat Robustností, Adaptací, Automatizací a Portfoliem.

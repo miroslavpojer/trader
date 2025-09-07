@@ -10,7 +10,11 @@
 - [ ] Napsat základní backtestovací engine (vectorized nebo event-driven)
 - [ ] Vyhodnocení metrik (win-rate, PF, max DD, Sharpe)
 
-## 🟡 Epic 2: Robustnost
+---
+
+## 🎯 Milestone 2: Robustnost & Risk Layer
+
+### 🟡 Epic 2: Robustnost
 **Popis:** Zajistit, aby systém nebyl přeoptimalizovaný a obstál i mimo sample.  
 **Tasks:**
 - [ ] Přidat walk-forward testy (rolling rekalibrace parametrů)
@@ -19,7 +23,7 @@
 - [ ] Otestovat cross-validation na různých tickerech/sektorech
 - [ ] Prohnat systém krizovými obdobími (2008, 2020)
 
-## 🔵 Epic 3: Risk Management
+### 🔵 Epic 3: Risk Management
 **Popis:** Implementovat systém ochrany účtu a řízení rizika.  
 **Tasks:**
 - [ ] Přidat position sizing fixní (např. max 1 % účtu / obchod)
@@ -29,7 +33,11 @@
 - [ ] Kill-switch (pozastavit systém při DD > X % nebo Hurst > 0.5)
 - [ ] Výpočet celkového portfolio risku (součet expozic, korelace)
 
-## 🟠 Epic 4: Adaptace
+---
+
+## ⚙️ Milestone 3: Adaptace & Governance
+
+### 🟠 Epic 4: Adaptace
 **Popis:** Udržet edge dlouhodobě průběžnou adaptací.  
 **Tasks:**
 - [ ] Přidat čtvrtletní rekalibraci parametrů (automatizace)
@@ -39,7 +47,7 @@
 - [ ] Přidat **více timeframe filtrů** (daily + weekly potvrzení signálu)
 - [ ] Implementovat **meta-systém adaptivní vypínač** (pauza při degradaci)
 
-## 🟣 Epic 5: Governance
+### 🟣 Epic 5: Governance
 **Popis:** Řídit systém jako „firmu“ s reportingem a auditem.  
 **Tasks:**
 - [ ] Vést obchodní deník (log signálů + fundament poznámky)
@@ -48,7 +56,11 @@
 - [ ] Peer review (2. pohled nebo alespoň simulovaný audit)
 - [ ] Definovat pravidla pro manuální zásahy (kdy je smíš udělat)
 
-## 🟤 Epic 6: Infrastructure & Automatizace
+---
+
+## 🛠️ Milestone 4: Infrastructure & Automatizace
+
+### 🟤 Epic 6: Infrastructure & Automatizace
 **Popis:** Automatizovat screening, alerty a workflow.  
 **Tasks:**
 - [ ] Implementovat nightly screening kandidátů
@@ -57,8 +69,15 @@
 - [ ] Archivovat data (rezidua, Z, Hurst, fundamenty)
 - [ ] Nastavit periodický backtest re-run po updatech
 - [ ] Přidat **cash booster** (automatický parking do T-Bill ETF)
+- [ ] CI/CD pipeline (automatické testy při update kódu)
+- [ ] Docker/venv orchestrace (přenositelnost)
+- [ ] Scheduler (Airflow/Prefect nebo cron DAG)
 
-## 🔴 Epic 7: Portfolio konstrukce & Performance Enhancers
+---
+
+## 📈 Milestone 5: Portfolio Construction & Strategy Suite
+
+### 🔴 Epic 7: Portfolio konstrukce & Performance Enhancers
 **Popis:** Vytvořit finální portfolio s hlavní strategií a overlayi pro zvýšení výkonu.  
 **Tasks:**
 - [ ] Definovat hlavní strategii (high-conviction MR, 10–20 obchodů/rok)
@@ -67,3 +86,18 @@
 - [ ] Přidat sezónní/kalendářní edge (např. turn-of-month)
 - [ ] Otestovat různé kombinace main + overlay
 - [ ] Optimalizovat cílení: 25–30 % roční výnos při rozumné volatilitě
+- [ ] Přidat další pipelines (trend following, ETF rotation, panic rebound, breakout retest)
+- [ ] Meta-allokátor kapitálu (priority a kill-switch per pipeline)
+- [ ] Correlation matrix & hedging logika
+
+---
+
+## 🌐 Milestone 6: Monitoring & Meta-Layer
+
+### 🟣 Epic 8: Monitoring & Analytics (nový)
+**Popis:** Centralizovaný monitoring a meta-řízení.  
+**Tasks:**
+- [ ] Centralizovaný dashboard (strategies performance, risk, corr)
+- [ ] Rolling diagnózy (WR, PF, DD)
+- [ ] Alerty na degradaci edge
+- [ ] Meta-allocator kapitálu podle režimu trhu

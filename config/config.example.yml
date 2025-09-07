@@ -3,29 +3,44 @@ data:
   tz: "UTC"
   adjusted_prices: false
 
-features:
-  ema_window: 20
-  z_std_window: 20
-  atr_window: 14
-  hurst_window: 250
-  ou_lookback: 60
+cache:
+  base_ohlcv: "data_cache/base_ohlcv.parquet"
+  events: "data_cache/events.parquet"
 
-signals:
-  z_entry: -2.5
-  z_exit: -0.5
-  stop_z: -3.5
-  time_stop: 5
-  hurst_max: 0.45
-  atrp_min: 0.01
-  atrp_max: 0.04
+strategies:
+  mr:
+    universe: "universes/universe_main.json"
+    params:
+      z_entry: -2.0
+      z_exit: -0.5
+      rsi2_buy_lt: 5
+      rsi2_sell_gt: 95
+      hurst_max: 0.45
+      atr_stop_k: 0.7
+      time_stop: 5
+    risk:
+      risk_per_trade: 0.01
+      max_concurrent: 6
 
-risk:
-  capital: 100000
-  risk_per_trade: 0.01
-  max_concurrent: 5
+  tf:
+    universe: "universes/universe_main.json"
+    params:
+      adx_min: 25
+      sma_fast: 50
+      sma_slow: 200
+      atr_trail_k: 2.0
+    risk:
+      risk_per_trade: 0.01
 
-events:
-  earnings_path: null
-  dividends_path: null
-  pre: 1
-  post: 1
+  etf:
+    universe: "universes/universe_etf.json"
+    params:
+      momentum_lookback_m: [3, 6]
+      top_n: 4
+      vola_lookback_d: 20
+      max_weight: 0.25
+    risk:
+      gross_leverage: 1.0
+
+scheduler:
+  run_all_after_close: true

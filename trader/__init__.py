@@ -1,1 +1,1 @@
-# Package init
+# mvp-trader package

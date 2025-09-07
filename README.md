@@ -7,7 +7,9 @@ Kompletní skeleton pro mean‑reversion pipeline: **raw → clean → features 
 python -m venv .venv && source .venv/bin/activate  # Win: .venv\Scripts\activate
 pip install -r requirements.txt
 pytest -q
-python -m trader.cli --config config/config.example.yml run
+
+# Orchestrátor (sekvenčně; paralelizace je TODO v orchestratoru)
+python -m trader.cli --config config/config.example.yml run_all
 ```
 
 ## Struktura

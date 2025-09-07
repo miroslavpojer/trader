@@ -1,7 +1,7 @@
 [project]
-name = "trader-skeleton"
+name = "mvp-trader"
 version = "0.1.0"
-description = "Mean-reversion trading pipeline skeleton: raw -> features -> signals -> backtest"
+description = "Multi-pipeline trading skeleton: RAW ingest + MR + Trend + ETF rotation"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
