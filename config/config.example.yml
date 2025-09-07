@@ -1,0 +1,31 @@
+data:
+  raw_paths: ["./data/raw/*.parquet"]   # uprav dle prostředí
+  tz: "UTC"
+  adjusted_prices: false
+
+features:
+  ema_window: 20
+  z_std_window: 20
+  atr_window: 14
+  hurst_window: 250
+  ou_lookback: 60
+
+signals:
+  z_entry: -2.5
+  z_exit: -0.5
+  stop_z: -3.5
+  time_stop: 5
+  hurst_max: 0.45
+  atrp_min: 0.01
+  atrp_max: 0.04
+
+risk:
+  capital: 100000
+  risk_per_trade: 0.01
+  max_concurrent: 5
+
+events:
+  earnings_path: null
+  dividends_path: null
+  pre: 1
+  post: 1
