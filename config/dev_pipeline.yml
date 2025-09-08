@@ -1,0 +1,50 @@
+universe:
+  tickers: ["AAA", "BBB"]
+  sources:
+    - "./data/source1/{ticker}/**/*"
+    - "./data/source2/{ticker}/**/*"
+
+io:
+  phase_dir: "data"
+  parquet_engine: "pyarrow"
+
+pipelines:
+  00_raw:
+    enabled: true
+    params:
+      resample_rule: "1H"
+
+  01_mr:
+    enabled: true
+    params:
+      z_entry: -2.0
+      z_exit: -0.5
+      rsi2_buy_lt: 5
+      hurst_max: 0.45
+      atr_window: 14
+      bb_window: 20
+      bb_z: 2.0
+      time_stop: 5
+    risk:
+      risk_per_trade: 0.01
+
+  02_tf:
+    enabled: true
+    params:
+      adx_min: 25
+      sma_fast: 50
+      sma_slow: 200
+      atr_trail_k: 2.0
+    risk:
+      risk_per_trade: 0.01
+
+  03_etf:
+    enabled: true
+    params:
+      momentum_lookback_m: [3, 6]
+      vola_lookback_d: 20
+      top_n: 4
+
+scheduler:
+  run_after_collect: true
+  max_workers: 3

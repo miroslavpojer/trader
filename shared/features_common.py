@@ -1,4 +1,4 @@
-"""Common feature calculators (SMA/EMA/ATR/ADX/RSI, Hurst, OU)."""
+"""Common features: SMA/EMA/Bollinger/ATR/RSI(2)/ADX (placeholder)/Hurst/OU."""
 from __future__ import annotations
 import pandas as pd
 import numpy as np
@@ -28,7 +28,6 @@ def atr(df: pd.DataFrame, window=14, out_atr="atr_14", out_atrp="atrp_14"):
     return df
 
 def rsi2(df: pd.DataFrame, col="close", out="rsi2"):
-    # naive 2-period RSI
     delta = df.groupby("ticker")[col].transform(lambda s: s.diff())
     up = delta.clip(lower=0.0).rolling(2).mean()
     down = (-delta.clip(upper=0.0)).rolling(2).mean()
@@ -37,7 +36,7 @@ def rsi2(df: pd.DataFrame, col="close", out="rsi2"):
     return df
 
 def adx(df: pd.DataFrame, window=14, out="adx_14"):
-    # placeholder ADX; TODO: replace with robust formula if needed
+    # placeholder
     df[out] = np.nan
     return df
 

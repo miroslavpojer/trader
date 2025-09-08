@@ -3,9 +3,14 @@
 Měsíční rotace do top-N ETF podle 3–6M momentum, vážení inverse volatility.
 """
 from __future__ import annotations
+
+import logging
+
 import pandas as pd
 import numpy as np
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 def compute_momentum(df: pd.DataFrame, months: int, out: str):
     """Price momentum = close / close.shift(LB) - 1 (approx)."""
@@ -35,24 +40,26 @@ def monthly_rotation(df: pd.DataFrame, top_n: int, vola_col: str, mom_cols: list
     return sel
 
 def run_pipeline(cfg: dict):
-    """Compute ETF momentum/vola → monthly picks → export summary (placeholder backtest)."""
-    base = cfg["cache"]["base_ohlcv"]
-    df = pd.read_parquet(base)
+    logger.debug("Running ETF rotation pipeline with config: %s", cfg)
 
-    p = cfg["strategies"]["etf"]["params"]
-    df = compute_momentum(df, months=int(p["momentum_lookback_m"][0]), out="mom_3m")
-    df = compute_momentum(df, months=int(p["momentum_lookback_m"][1]), out="mom_6m")
-    df = compute_vola(df, window=int(p["vola_lookback_d"]), out="vola_20")
-
-    sel = monthly_rotation(df, top_n=int(p["top_n"]), vola_col="vola_20", mom_cols=["mom_3m","mom_6m"])
-
-    # TODO: portfolio backtest (apply weights next month, hold for 1M)
-    trades = pd.DataFrame(columns=["month","ticker","weight"])
-    equity = pd.DataFrame(columns=["date","equity"])
-    summary = {"Sharpe_vs_SPY": 0.0, "MaxDD": 0.0}
-
-    out = Path("reports/etf"); out.mkdir(parents=True, exist_ok=True)
-    sel.to_csv(out/"selection.csv", index=False)
-    trades.to_csv(out/"trades.csv", index=False)
-    equity.to_csv(out/"equity.csv", index=False)
-    pd.Series(summary).to_csv(out/"summary.json")
+    # """Compute ETF momentum/vola → monthly picks → export summary (placeholder backtest)."""
+    # base = cfg["cache"]["base_ohlcv"]
+    # df = pd.read_parquet(base)
+    #
+    # p = cfg["strategies"]["etf"]["params"]
+    # df = compute_momentum(df, months=int(p["momentum_lookback_m"][0]), out="mom_3m")
+    # df = compute_momentum(df, months=int(p["momentum_lookback_m"][1]), out="mom_6m")
+    # df = compute_vola(df, window=int(p["vola_lookback_d"]), out="vola_20")
+    #
+    # sel = monthly_rotation(df, top_n=int(p["top_n"]), vola_col="vola_20", mom_cols=["mom_3m","mom_6m"])
+    #
+    # # TODO: portfolio backtest (apply weights next month, hold for 1M)
+    # trades = pd.DataFrame(columns=["month","ticker","weight"])
+    # equity = pd.DataFrame(columns=["date","equity"])
+    # summary = {"Sharpe_vs_SPY": 0.0, "MaxDD": 0.0}
+    #
+    # out = Path("reports/etf"); out.mkdir(parents=True, exist_ok=True)
+    # sel.to_csv(out/"selection.csv", index=False)
+    # trades.to_csv(out/"trades.csv", index=False)
+    # equity.to_csv(out/"equity.csv", index=False)
+    # pd.Series(summary).to_csv(out/"summary.json")
