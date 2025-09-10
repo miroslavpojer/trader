@@ -15,7 +15,7 @@ pipelines:
       resample_rule: "1H"
 
   01_mr:
-    enabled: true
+    enabled: false
     params:
       z_entry: -2.0
       z_exit: -0.5
@@ -29,7 +29,7 @@ pipelines:
       risk_per_trade: 0.01
 
   02_tf:
-    enabled: true
+    enabled: false
     params:
       adx_min: 25
       sma_fast: 50
@@ -39,7 +39,7 @@ pipelines:
       risk_per_trade: 0.01
 
   03_etf:
-    enabled: true
+    enabled: false
     params:
       momentum_lookback_m: [3, 6]
       vola_lookback_d: 20
